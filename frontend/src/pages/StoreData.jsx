@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,35 +7,38 @@ const API_BASE = isLocalhost ? 'http://localhost:5000/api' : 'https://backend-on
 
 export default function StoreData() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('text');
-  const [form, setForm] = useState({ title: '', data: '', sensitivityLevel: 'LOW', category: 'Personal', expiryDays: '' });
-  const [noteForm, setNoteForm] = useState({ title: '', content: '', sensitivityLevel: 'LOW', category: 'Personal' });
-  const [passForm, setPassForm] = useState({ title: '', username: '', password: '', website: '', category: 'Personal' });
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [form, setForm] = useState({ title: '', data: '', sensitivityLevel: 'LOW' });
+  const [selectedFile, setSelectedFile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadMode, setUploadMode] = useState('text');
   const fileInputRef = useRef(null);
 
-  if (!user) return <div className="loading">Loading...</div>;
-
-  const accessLevels = { admin: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], employee: ['LOW', 'MEDIUM', 'HIGH'], guest: ['LOW'] };
-  const allowedLevels = accessLevels[user?.role] || ['LOW'];
-
-  const categories = ['Personal', 'Work', 'Finance', 'Medical', 'Legal', 'Other'];
-
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-    let password = '';
-    for (let i = 0; i < 16; i++) password += chars.charAt(Math.floor(Math.random() * chars.length));
-    setPassForm({ ...passForm, password });
+  const accessLevels = {
+    admin: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+    employee: ['LOW', 'MEDIUM', 'HIGH'],
+    guest: ['LOW']
   };
 
+  const allowedLevels = accessLevels[user.role] || ['LOW'];
+
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
-    if (files.length > 10) { setError('Max 10 files allowed'); return; }
-    setSelectedFiles(files);
-    setError('');
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setError('Only PDF files are allowed.');
+        setSelectedFile(null);
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB.');
+        setSelectedFile(null);
+        return;
+      }
+      setSelectedFile(file);
+      setError('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,33 +48,31 @@ export default function StoreData() {
     setLoading(true);
 
     try {
-      let res;
-      if (activeTab === 'text') {
-        res = await API.post('/vault/store', { ...form, expiryDays: form.expiryDays ? parseInt(form.expiryDays) : null });
-      } else if (activeTab === 'pdf' && selectedFiles.length > 0) {
+      if (uploadMode === 'pdf' && selectedFile) {
         const formData = new FormData();
         formData.append('title', form.title);
         formData.append('sensitivityLevel', form.sensitivityLevel);
-        formData.append('category', form.category);
-        if (form.expiryDays) formData.append('expiryDays', form.expiryDays);
-        selectedFiles.forEach(f => formData.append('files', f));
+        formData.append('file', selectedFile);
+
         const token = localStorage.getItem('token');
-        res = await fetch(`${API_BASE}/vault/store/pdf`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
-        res = { data: await res.json() };
-        if (!res.data.storedItems) throw new Error(res.data.error);
-      } else if (activeTab === 'note') {
-        res = await API.post('/vault/store/note', noteForm);
-      } else if (activeTab === 'password') {
-        res = await API.post('/vault/store/password', passForm);
+        const res = await fetch(`${API_BASE}/vault/store/pdf`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to upload PDF');
+        setResult(data);
+        setForm({ title: '', data: '', sensitivityLevel: 'LOW' });
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } else {
+        const res = await API.post('/vault/store', form);
+        setResult(res.data);
+        setForm({ title: '', data: '', sensitivityLevel: 'LOW' });
       }
-      setResult(res.data);
-      setForm({ title: '', data: '', sensitivityLevel: 'LOW', category: 'Personal', expiryDays: '' });
-      setNoteForm({ title: '', content: '', sensitivityLevel: 'LOW', category: 'Personal' });
-      setPassForm({ title: '', username: '', password: '', website: '', category: 'Personal' });
-      setSelectedFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to store');
+      setError(err.response?.data?.error || err.message || 'Failed to store data');
     } finally {
       setLoading(false);
     }
@@ -80,100 +81,104 @@ export default function StoreData() {
   return (
     <div className="page">
       <h1>Store Data Securely</h1>
-      <p className="subtitle">Encrypt & store text, PDFs, notes, or passwords with context-aware encryption</p>
+      <p className="subtitle">
+        The system will automatically determine encryption strength based on your role ({user.role}),
+        location ({user.location}), time of access, and data sensitivity.
+      </p>
 
-      <div className="store-tabs">
-        {['text', 'pdf', 'note', 'password'].map(tab => (
-          <button key={tab} className={`tab-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-            {tab === 'text' && '📝 Text'}
-            {tab === 'pdf' && '📄 PDF'}
-            {tab === 'note' && '📋 Note'}
-            {tab === 'password' && '🔑 Password'}
-          </button>
-        ))}
+      <div className="upload-mode-toggle">
+        <button 
+          className={`btn ${uploadMode === 'text' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setUploadMode('text')}
+        >
+          Text Data
+        </button>
+        <button 
+          className={`btn ${uploadMode === 'pdf' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setUploadMode('pdf')}
+        >
+          PDF File
+        </button>
       </div>
 
       {error && <div className="error-msg">{error}</div>}
 
       <form onSubmit={handleSubmit} className="store-form">
-        <div className="form-row">
-          <div className="form-group">
-            <label>Title</label>
-            <input type="text" value={activeTab === 'text' ? form.title : activeTab === 'note' ? noteForm.title : passForm.title} 
-              onChange={e => activeTab === 'text' ? setForm({...form, title: e.target.value}) : activeTab === 'note' ? setNoteForm({...noteForm, title: e.target.value}) : setPassForm({...passForm, title: e.target.value})}
-              required placeholder="Enter title" />
-          </div>
-          <div className="form-group">
-            <label>Category</label>
-            <select value={activeTab === 'text' ? form.category : activeTab === 'note' ? noteForm.category : passForm.category}
-              onChange={e => activeTab === 'text' ? setForm({...form, category: e.target.value}) : activeTab === 'note' ? setNoteForm({...noteForm, category: e.target.value}) : setPassForm({...passForm, category: e.target.value})}>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+        <div className="form-group">
+          <label>Title</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            required
+            placeholder="Name for this data entry"
+          />
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>Sensitivity Level</label>
-            <select value={activeTab === 'password' ? 'HIGH' : (activeTab === 'text' ? form.sensitivityLevel : noteForm.sensitivityLevel)}
-              onChange={e => activeTab === 'text' ? setForm({...form, sensitivityLevel: e.target.value}) : setNoteForm({...noteForm, sensitivityLevel: e.target.value})}>
-              {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(l => <option key={l} value={l} disabled={!allowedLevels.includes(l)}>{l}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Auto-delete after (days, optional)</label>
-            <input type="number" value={form.expiryDays} onChange={e => setForm({...form, expiryDays: e.target.value})} placeholder="Never" min="1" />
-          </div>
+        <div className="form-group">
+          <label>Sensitivity Level</label>
+          <select
+            value={form.sensitivityLevel}
+            onChange={(e) => setForm({ ...form, sensitivityLevel: e.target.value })}
+          >
+            {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((level) => (
+              <option key={level} value={level} disabled={!allowedLevels.includes(level)}>
+                {level} {!allowedLevels.includes(level) ? '(Not allowed for your role)' : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {activeTab === 'text' && (
+        {uploadMode === 'text' ? (
           <div className="form-group">
             <label>Data to Encrypt</label>
-            <textarea value={form.data} onChange={e => setForm({...form, data: e.target.value})} required placeholder="Enter sensitive data..." rows={6} />
+            <textarea
+              value={form.data}
+              onChange={(e) => setForm({ ...form, data: e.target.value })}
+              required
+              placeholder="Enter the sensitive data you want to securely store..."
+              rows={6}
+            />
           </div>
-        )}
-
-        {activeTab === 'pdf' && (
+        ) : (
           <div className="form-group">
-            <label>Upload PDF Files (max 10)</label>
-            <input type="file" ref={fileInputRef} accept="application/pdf" multiple onChange={handleFileChange} className="file-input" />
-            {selectedFiles.length > 0 && <div className="selected-files">{selectedFiles.map(f => <span key={f.name} className="file-tag">{f.name}</span>)}</div>}
-          </div>
-        )}
-
-        {activeTab === 'note' && (
-          <div className="form-group">
-            <label>Secure Note Content</label>
-            <textarea value={noteForm.content} onChange={e => setNoteForm({...noteForm, content: e.target.value})} required placeholder="Write your secure note..." rows={8} />
-          </div>
-        )}
-
-        {activeTab === 'password' && (
-          <div className="form-group">
-            <label>Password Details</label>
-            <div className="password-form">
-              <input type="text" value={passForm.username} onChange={e => setPassForm({...passForm, username: e.target.value})} placeholder="Username/Email" />
-              <div className="password-input-group">
-                <input type="password" value={passForm.password} onChange={e => setPassForm({...passForm, password: e.target.value})} required placeholder="Password" />
-                <button type="button" className="btn btn-secondary" onClick={generatePassword}>🎲 Generate</button>
+            <label>Upload PDF File</label>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="application/pdf"
+              onChange={handleFileChange}
+              required
+              className="file-input"
+            />
+            {selectedFile && (
+              <div className="selected-file">
+                <strong>Selected:</strong> {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
               </div>
-              <input type="text" value={passForm.website} onChange={e => setPassForm({...passForm, website: e.target.value})} placeholder="Website (optional)" />
-            </div>
+            )}
           </div>
         )}
 
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Encrypting...' : `Encrypt & Store ${activeTab === 'pdf' ? `${selectedFiles.length} File(s)` : ''}`}
+          {loading ? 'Encrypting & Storing...' : uploadMode === 'pdf' ? 'Encrypt PDF & Store' : 'Encrypt & Store'}
         </button>
       </form>
 
       {result && (
         <div className="result-card success">
-          <h3>✅ Stored Successfully!</h3>
+          <h3>Data Stored Successfully</h3>
           <div className="result-details">
-            {result.vaultItem && <div className="info-item"><strong>Title:</strong> {result.vaultItem.title}</div>}
-            {result.storedItems && <div className="info-item"><strong>Files:</strong> {result.storedItems.length}</div>}
-            <div className="info-item"><strong>Strategy:</strong> <span className={`strategy-badge ${activeTab === 'password' ? 'strategy-strong' : 'strategy-standard'}`}>{activeTab === 'password' ? 'STRONG' : 'STANDARD'}</span></div>
+            <div className="info-item"><strong>Title:</strong> {result.vaultItem.title}</div>
+            {result.vaultItem.originalFileName && (
+              <div className="info-item"><strong>File:</strong> {result.vaultItem.originalFileName}</div>
+            )}
+            <div className="info-item"><strong>Type:</strong> {result.vaultItem.fileType === 'pdf' ? 'PDF Document' : 'Text'}</div>
+            <div className="info-item"><strong>Sensitivity:</strong> <span className={`sensitivity-badge s-${result.vaultItem.sensitivityLevel.toLowerCase()}`}>{result.vaultItem.sensitivityLevel}</span></div>
+            <div className="info-item"><strong>Encryption Strategy:</strong> <span className={`strategy-badge strategy-${result.vaultItem.encryptionStrategy.toLowerCase()}`}>{result.vaultItem.encryptionStrategy}</span></div>
+            <div className="info-item"><strong>Algorithm:</strong> {result.vaultItem.algorithm}</div>
+            {result.vaultItem.policyEvaluation && (
+              <div className="info-item"><strong>Policy Score:</strong> {result.vaultItem.policyEvaluation.score}</div>
+            )}
           </div>
         </div>
       )}

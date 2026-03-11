@@ -11,11 +11,6 @@ const vaultItemSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  category: {
-    type: String,
-    enum: ['Personal', 'Work', 'Finance', 'Medical', 'Legal', 'Other', 'Uncategorized'],
-    default: 'Uncategorized'
-  },
   sensitivityLevel: {
     type: String,
     enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
@@ -23,7 +18,7 @@ const vaultItemSchema = new mongoose.Schema({
   },
   fileType: {
     type: String,
-    enum: ['text', 'pdf', 'note', 'password'],
+    enum: ['text', 'pdf'],
     default: 'text'
   },
   originalFileName: {
@@ -51,22 +46,6 @@ const vaultItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  expiryDate: {
-    type: Date,
-    default: null
-  },
-  sharedWith: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    sharedAt: { type: Date, default: Date.now },
-    canDecrypt: { type: Boolean, default: true }
-  }],
-  accessHistory: [{
-    action: String,
-    performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    timestamp: { type: Date, default: Date.now },
-    ipAddress: String,
-    location: String
-  }],
   metadata: {
     originalSize: Number,
     mimeType: String,
