@@ -10,7 +10,9 @@ export default function VaultItems() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [decryptedData, setDecryptedData] = useState({});
+  const [encryptedViewData, setEncryptedViewData] = useState({});
   const [decrypting, setDecrypting] = useState({});
+  const [viewingEncrypted, setViewingEncrypted] = useState({});
   const [error, setError] = useState('');
 
   const fetchItems = async () => {
@@ -25,6 +27,29 @@ export default function VaultItems() {
   };
 
   useEffect(() => { fetchItems(); }, []);
+
+  const handleViewEncrypted = async (id) => {
+    setViewingEncrypted((prev) => ({ ...prev, [id]: true }));
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/vault/view-encrypted/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to view encrypted data');
+      }
+
+      const data = await response.json();
+      setEncryptedViewData((prev) => ({ ...prev, [id]: data.vaultItem }));
+    } catch (err) {
+      setError(err.message || 'Failed to view encrypted data');
+    } finally {
+      setViewingEncrypted((prev) => ({ ...prev, [id]: false }));
+    }
+  };
 
   const handleRetrieve = async (id) => {
     setDecrypting((prev) => ({ ...prev, [id]: true }));
@@ -70,6 +95,7 @@ export default function VaultItems() {
       await deleteVaultItem(id);
       setItems(items.filter((item) => item._id !== id));
       setDecryptedData((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
+      setEncryptedViewData((prev) => { const copy = { ...prev }; delete copy[id]; return copy; });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete item');
     }
@@ -82,7 +108,7 @@ export default function VaultItems() {
       <h1>My Vault</h1>
       <p className="subtitle">
         {items.length} encrypted item{items.length !== 1 ? 's' : ''} stored.
-        Click "Decrypt & View" to retrieve data (context will be re-evaluated).
+        You can view encrypted data (ciphertext) or decrypt to see original content.
       </p>
 
       {error && <div className="error-msg">{error}</div>}
@@ -131,9 +157,27 @@ export default function VaultItems() {
                 )}
               </div>
 
+              {/* Encrypted Data Section */}
+              {encryptedViewData[item._id] && (
+                <div className="encrypted-section">
+                  <h4>🔒 Encrypted Data (Ciphertext):</h4>
+                  <div className="encrypted-data">
+                    {encryptedViewData[item._id].encryptedData.substring(0, 200)}...
+                  </div>
+                  <div className="encryption-details">
+                    <span><strong>IV:</strong> {encryptedViewData[item._id].iv}</span>
+                    {encryptedViewData[item._id].authTag && (
+                      <span><strong>Auth Tag:</strong> {encryptedViewData[item._id].authTag}</span>
+                    )}
+                  </div>
+                  <p className="encrypted-notice">⚠️ This is the ENCRYPTED data - not readable without decryption key</p>
+                </div>
+              )}
+
+              {/* Decrypted Data Section */}
               {decryptedData[item._id] && !decryptedData[item._id].isPdf && (
                 <div className="decrypted-section">
-                  <h4>Decrypted Data:</h4>
+                  <h4>🔓 Decrypted Data:</h4>
                   <pre className="decrypted-data">{decryptedData[item._id].data}</pre>
                   {item.metadata?.contextSnapshot && (
                     <div className="context-info">
@@ -154,11 +198,19 @@ export default function VaultItems() {
 
               <div className="vault-card-actions">
                 <button
+                  onClick={() => handleViewEncrypted(item._id)}
+                  className="btn btn-secondary btn-sm"
+                  disabled={viewingEncrypted[item._id]}
+                  title="View encrypted data without decrypting"
+                >
+                  {viewingEncrypted[item._id] ? 'Loading...' : '🔒 View Encrypted'}
+                </button>
+                <button
                   onClick={() => handleRetrieve(item._id)}
                   className="btn btn-primary btn-sm"
                   disabled={decrypting[item._id]}
                 >
-                  {decrypting[item._id] ? 'Decrypting...' : item.fileType === 'pdf' ? 'Decrypt & Download PDF' : decryptedData[item._id] ? 'Re-decrypt' : 'Decrypt & View'}
+                  {decrypting[item._id] ? 'Decrypting...' : item.fileType === 'pdf' ? 'Decrypt & Download PDF' : decryptedData[item._id] ? 'Re-decrypt' : '🔓 Decrypt & View'}
                 </button>
                 {(user.role === 'admin' || item.owner?._id === user.id) && (
                   <button

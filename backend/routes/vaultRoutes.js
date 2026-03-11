@@ -355,6 +355,69 @@ router.get('/retrieve/:id', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/vault/view-encrypted/:id
+ * View encrypted data WITHOUT decrypting it.
+ */
+router.get('/view-encrypted/:id', authenticate, async (req, res) => {
+  try {
+    const user = req.user;
+    const vaultItem = await VaultItem.findById(req.params.id);
+
+    if (!vaultItem) {
+      return res.status(404).json({ error: 'Vault item not found.' });
+    }
+
+    // Check ownership
+    if (vaultItem.owner.toString() !== user._id.toString() && user.role !== 'admin') {
+      await AuditService.log({
+        userId: user._id,
+        username: user.username,
+        role: user.role,
+        action: 'ACCESS_DENIED',
+        resource: vaultItem.title,
+        details: 'Attempted to view encrypted data of another user',
+        success: false
+      });
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    await AuditService.log({
+      userId: user._id,
+      username: user.username,
+      role: user.role,
+      action: 'VIEW_ENCRYPTED',
+      resource: vaultItem.title,
+      details: `Viewed encrypted ${vaultItem.fileType} data without decryption`,
+      context: { sensitivityLevel: vaultItem.sensitivityLevel, encryptionStrategy: vaultItem.encryptionStrategy }
+    });
+
+    res.json({
+      message: 'Encrypted data retrieved (not decrypted)',
+      vaultItem: {
+        id: vaultItem._id,
+        title: vaultItem.title,
+        fileType: vaultItem.fileType,
+        originalFileName: vaultItem.originalFileName,
+        sensitivityLevel: vaultItem.sensitivityLevel,
+        encryptionStrategy: vaultItem.encryptionStrategy,
+        algorithm: vaultItem.algorithm,
+        encryptedData: vaultItem.encryptedData,
+        iv: vaultItem.iv,
+        authTag: vaultItem.authTag,
+        metadata: {
+          originalSize: vaultItem.metadata?.originalSize,
+          mimeType: vaultItem.metadata?.mimeType,
+          encryptedAt: vaultItem.metadata?.encryptedAt
+        },
+        storedAt: vaultItem.createdAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to view encrypted data: ' + error.message });
+  }
+});
+
+/**
  * GET /api/vault/items
  * List all vault items for the current user.
  */

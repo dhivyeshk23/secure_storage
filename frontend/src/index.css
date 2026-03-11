@@ -684,3 +684,57 @@ body {
   font-size: 0.7rem;
   font-weight: 600;
 }
+
+/* ===== Encrypted Data View ===== */
+.encrypted-section {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.encrypted-section h4 {
+  color: #ffb74d;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.encrypted-data {
+  background: var(--bg);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.75rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #ffb74d;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.encryption-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-light);
+}
+
+.encryption-details span {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.encrypted-notice {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #ffb74d;
+  font-style: italic;
+}
