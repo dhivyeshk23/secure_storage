@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: 'https://backend-one-blush-33.vercel.app/api',
 });
 
 // Attach token to every request
