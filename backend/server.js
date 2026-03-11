@@ -1,30 +1,48 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const mongoose = require('mongoose');
 
 dotenv.config();
 
-// Connect to MongoDB Atlas
-connectDB();
-
 const app = express();
 
-// Middleware
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ 
+  origin: true, 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '10mb' }));
 
-// Routes
+// Connect to MongoDB
+const connectDB = async () => {
+  if (mongoose.connection.readyState === 0) {
+    try {
+      await mongoose.connect(process.env.MONGO_URI);
+      console.log('MongoDB Atlas Connected');
+    } catch (error) {
+      console.error('MongoDB connection error:', error.message);
+    }
+  }
+};
+
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/vault', require('./routes/vaultRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Secure Data Vault API is running', timestamp: new Date().toISOString() });
 });
 
+// For local development
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Secure Data Vault server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  connectDB();
+  app.listen(PORT, () => {
+    console.log(`Secure Data Vault server running on port ${PORT}`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
