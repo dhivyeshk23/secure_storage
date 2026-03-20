@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { loginUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = 'https://backend-one-blush-33.vercel.app/api';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [otpForm, setOtpForm] = useState('');
   const [error, setError] = useState('');
@@ -27,8 +29,7 @@ export default function Login() {
         setDisplayedOtp(data.otp || '');
         setRequires2FA(true);
       } else {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        login(data.token, data.user);
         navigate('/dashboard');
       }
     } catch (err) {
@@ -57,8 +58,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      login(data.token, data.user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'OTP verification failed.');
