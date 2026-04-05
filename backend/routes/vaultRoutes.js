@@ -28,7 +28,7 @@ const MIME_CATEGORIES = {
   // Audio
   'audio/mpeg': 'audio', 'audio/wav': 'audio', 'audio/ogg': 'audio',
   'audio/flac': 'audio', 'audio/aac': 'audio', 'audio/mp4': 'audio',
-  'audio/x-m4a': 'audio',
+  'audio/x-m4a': 'audio', 'audio/webm': 'audio', 'audio/webm;codecs=opus': 'audio',
   // Video
   'video/mp4': 'video', 'video/webm': 'video', 'video/x-msvideo': 'video',
   'video/quicktime': 'video', 'video/x-matroska': 'video',

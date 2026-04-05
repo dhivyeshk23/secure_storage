@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { storeData, storeFile } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { FILE_TYPE_ICONS } from '../components/Navbar';
@@ -22,6 +22,78 @@ export default function StoreData() {
   const [loading, setLoading] = useState(false);
   const [uploadMode, setUploadMode] = useState('text');
   const fileInputRef = useRef(null);
+
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [audioUrl]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
+        
+        const fileName = `voice-note-${new Date().getTime()}.webm`;
+        const file = new File([audioBlob], fileName, { type: 'audio/webm' });
+        setSelectedFile(file);
+        if (!form.title) setForm(prev => ({ ...prev, title: 'Voice Note' }));
+
+        // Stop all tracks in the stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      setError('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const resetRecording = () => {
+    setAudioUrl(null);
+    setSelectedFile(null);
+    setRecordingTime(0);
+    if (!form.data) setForm(prev => ({ ...prev, title: '' }));
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   if (!user) return <div className="loading">Loading...</div>;
 
@@ -68,7 +140,7 @@ export default function StoreData() {
     setLoading(true);
 
     try {
-      if (uploadMode === 'file' && selectedFile) {
+      if ((uploadMode === 'file' || uploadMode === 'audio') && selectedFile) {
         const formData = new FormData();
         formData.append('title', form.title);
         formData.append('sensitivityLevel', form.sensitivityLevel);
@@ -77,6 +149,7 @@ export default function StoreData() {
         setResult(res.data);
         setForm({ title: '', data: '', sensitivityLevel: 'LOW' });
         setSelectedFile(null);
+        setAudioUrl(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
         const res = await storeData(form);
@@ -108,6 +181,9 @@ export default function StoreData() {
         <button className={`btn ${uploadMode === 'file' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setUploadMode('file')}>
           📎 Upload File
         </button>
+        <button className={`btn ${uploadMode === 'audio' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setUploadMode('audio')}>
+          🎙️ Audio Recording
+        </button>
       </div>
 
       {error && <div className="error-msg">{error}</div>}
@@ -129,12 +205,14 @@ export default function StoreData() {
           </select>
         </div>
 
-        {uploadMode === 'text' ? (
+        {uploadMode === 'text' && (
           <div className="form-group">
             <label>Data to Encrypt</label>
             <textarea value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required placeholder="Enter the sensitive data you want to securely store..." rows={6} />
           </div>
-        ) : (
+        )}
+
+        {uploadMode === 'file' && (
           <div className="form-group">
             <label>Upload File (Images, Audio, Video, Documents, Spreadsheets, Archives — up to 50MB)</label>
             <input type="file" ref={fileInputRef} accept={ALL_FORMATS} onChange={handleFileChange} required className="file-input" />
@@ -153,8 +231,48 @@ export default function StoreData() {
           </div>
         )}
 
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? '🔄 Encrypting & Storing...' : uploadMode === 'file' ? '🔒 Encrypt File & Store' : '🔒 Encrypt & Store'}
+        {uploadMode === 'audio' && (
+          <div className="form-group">
+            <label>Voice Interaction Input</label>
+            <div className={`audio-recorder-panel ${isRecording ? 'recording-active' : ''}`}>
+              <div className="recording-status">
+                {isRecording ? '● Live Recording' : audioUrl ? 'Recording Complete' : 'Ready to record'}
+              </div>
+              <div className="recording-timer">
+                {formatTime(recordingTime)}
+              </div>
+              
+              {!audioUrl ? (
+                <div 
+                  className="recording-indicator" 
+                  onClick={isRecording ? stopRecording : startRecording}
+                  title={isRecording ? 'Stop Recording' : 'Start Recording'}
+                >
+                  {isRecording ? '⬜' : '🎤'}
+                </div>
+              ) : (
+                <div className="audio-preview-container">
+                  <audio src={audioUrl} controls className="audio-preview" />
+                  <div className="recorder-controls" style={{ marginTop: '1rem' }}>
+                    <button type="button" className="btn btn-secondary" onClick={resetRecording}>
+                      🗑️ Delete & Retry
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: '1rem' }}>
+                {isRecording ? 'Click the icon to stop recording.' : !audioUrl ? 'Click the microphone to start recording your voice note.' : 'Review your recording above before encrypting.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <button type="submit" className="btn btn-primary" disabled={loading || (uploadMode === 'audio' && !selectedFile) || (uploadMode === 'file' && !selectedFile)}>
+          {loading ? '🔄 Encrypting & Storing...' : 
+           uploadMode === 'file' ? '🔒 Encrypt File & Store' : 
+           uploadMode === 'audio' ? '🔒 Encrypt Voice Note & Store' : 
+           '🔒 Encrypt & Store'}
         </button>
       </form>
 
