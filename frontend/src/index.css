@@ -738,3 +738,39 @@ body {
   color: #ffb74d;
   font-style: italic;
 }
+
+/* ===== Share UI Components (Original Theme) ===== */
+.share-modal-card { max-width: 520px; width: 95%; max-height: 85vh; overflow-y: auto; padding: 0; background: var(--bg-card); border-radius: 12px; }
+.share-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: rgba(26, 115, 232, 0.05); }
+.share-form { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+.share-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.share-result { margin: 0 1.5rem 1rem; padding: 1rem; background: rgba(13, 144, 79, 0.06); border: 1px solid rgba(13, 144, 79, 0.3); border-radius: 8px; }
+.share-existing { padding: 1rem 1.5rem 1.5rem; }
+.share-link-item { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; }
+
+.share-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: var(--bg); }
+.share-container { width: 100%; max-width: 480px; }
+.share-download-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.share-download-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+.share-file-info { text-align: center; padding: 2rem 1.5rem 1.25rem; }
+.share-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0 1.5rem; margin-bottom: 1.25rem; }
+.share-meta-item { display: flex; flex-direction: column; align-items: center; padding: 0.75rem 0.5rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 6px; }
+.share-password-section { padding: 0 1.5rem; margin-bottom: 1.25rem; }
+.share-password-row { display: flex; gap: 0.5rem; }
+
+.shared-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.shared-stat-chip { padding: 0.5rem 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; min-width: 70px; text-align: center;}
+.shared-links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1rem; }
+.shared-link-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+.shared-link-card:hover { border-color: var(--primary); }
+.shared-link-details { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 0.75rem; color: var(--text-light); font-size: 0.9rem; }
+.shared-link-progress-bar { height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; margin-bottom: 0.25rem; }
+.shared-link-progress-fill { height: 100%; background: var(--primary); border-radius: 3px; }
+
+/* Global Utilities */
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+.subtitle { color: var(--text-light); font-size: 0.9rem; margin-top: 0.2rem; }
+

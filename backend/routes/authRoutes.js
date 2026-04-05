@@ -5,6 +5,7 @@ const LoginHistory = require('../models/LoginHistory');
 const Alert = require('../models/Alert');
 const AuditService = require('../services/AuditService');
 const { authenticate } = require('../middleware/auth');
+const AuthorizedEmail = require('../models/AuthorizedEmail');
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ async function checkSuspiciousLogin(user, ip, userAgent) {
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role, location } = req.body;
+    const { username, email, password, location } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Username, email, and password are required.' });
@@ -72,9 +73,27 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'User with this email or username already exists.' });
     }
 
+    const lowerEmail = email.toLowerCase();
+    const BOOTSTRAP_ADMIN = 'admin@psgitech.ac.in';
+    let assignedRole = 'student';
+
+    // Registration constraint logic
+    if (lowerEmail === BOOTSTRAP_ADMIN) {
+      assignedRole = 'admin';
+    } else {
+      const authEmail = await AuthorizedEmail.findOne({ email: lowerEmail });
+      
+      if (!authEmail) {
+        return res.status(403).json({ error: 'Registration denied. Your email must be authorized by an Administrator.' });
+      }
+      assignedRole = authEmail.role;
+    }
+
     const user = new User({
-      username, email, password,
-      role: role || 'student',
+      username, 
+      email: lowerEmail, 
+      password,
+      role: assignedRole,
       location: location || 'external'
     });
     await user.save();
@@ -84,6 +103,7 @@ router.post('/register', async (req, res) => {
     const defaultFolder = new (require('../models/Folder'))({
       owner: user._id, name: 'General', description: 'Default folder', color: '#1a73e8', isDefault: true
     });
+
     await defaultFolder.save();
 
     await AuditService.log({

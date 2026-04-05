@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth, useTheme } from '../context/AuthContext';
-
-const API_BASE = 'https://backend-one-blush-33.vercel.app/api';
+import { getSecurityStatus, getSessions, revokeSession, revokeAllSessions, updateIpWhitelist, getSettings, updateSettings } from '../services/api';
 
 export default function Security() {
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [sessions, setSessions] = useState([]);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettingsState] = useState(null);
+  const [securityStatus, setSecurityStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -19,15 +19,14 @@ export default function Security() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
       const [secRes, sesRes, settingsRes] = await Promise.all([
-        fetch(`${API_BASE}/security/security-status`, { headers }),
-        fetch(`${API_BASE}/security/sessions`, { headers }),
-        fetch(`${API_BASE}/advanced/settings`, { headers })
+        getSecurityStatus().catch(() => ({ data: {} })),
+        getSessions().catch(() => ({ data: { sessions: [] } })),
+        getSettings().catch(() => ({ data: {} }))
       ]);
-      setSettings(await settingsRes.json());
-      setSessions((await sesRes.json()).sessions || []);
+      setSecurityStatus(secRes.data);
+      setSessions(sesRes.data.sessions || []);
+      setSettingsState(settingsRes.data);
     } catch (err) { setError('Failed to load data'); }
     finally { setLoading(false); }
   };
@@ -36,8 +35,7 @@ export default function Security() {
 
   const handleRevokeSession = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_BASE}/security/sessions/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      await revokeSession(id);
       showSuccess('Session revoked.');
       setSessions(sessions.filter(s => s._id !== id));
     } catch { setError('Failed to revoke session.'); }
@@ -46,8 +44,7 @@ export default function Security() {
   const handleRevokeAll = async () => {
     if (!confirm('Revoke all other sessions?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_BASE}/security/sessions`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      await revokeAllSessions();
       showSuccess('All other sessions revoked.');
       fetchData();
     } catch { setError('Failed.'); }
@@ -56,44 +53,29 @@ export default function Security() {
   const handleUpdateIp = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
       const ips = ipWhitelist.split(',').map(ip => ip.trim()).filter(ip => ip);
-      const res = await fetch(`${API_BASE}/security/ip-whitelist`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ipWhitelist: ips })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await updateIpWhitelist(ips);
       setIpWhitelist('');
       showSuccess('IP whitelist updated.');
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(err.response?.data?.error || err.message); }
   };
 
   const handleUpdateSettings = async (updates) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/advanced/settings`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setSettings(prev => ({ ...prev, ...updates }));
+      await updateSettings(updates);
+      setSettingsState(prev => ({ ...prev, ...updates }));
       if (updates.preferredTheme) {
-        localStorage.setItem('theme', updates.preferredTheme);
-        document.documentElement.setAttribute('data-theme', updates.preferredTheme);
+        setTheme(updates.preferredTheme);
       }
       showSuccess('Settings updated.');
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(err.response?.data?.error || err.message); }
   };
 
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
     <div className="page">
-      <h1>Security Settings</h1>
+      <h1>🛡️ Security Settings</h1>
       <p className="subtitle">Manage sessions, IP restrictions, and preferences.</p>
       {error && <div className="error-msg">{error}</div>}
       {success && <div className="success-msg">{success}</div>}
@@ -109,7 +91,15 @@ export default function Security() {
           <div className="info-cards">
             <div className="info-card">
               <h3>Security Status</h3>
-              <div className="info-item"><strong>Account:</strong> {settings?.isLocked ? <span style={{ color: '#f44336' }}> LOCKED</span> : <span style={{ color: '#4caf50' }}> Active</span>}</div>
+              <div className="info-item">
+                <strong>Account:</strong>{' '}
+                {securityStatus?.isLocked
+                  ? <span style={{ color: '#f44336' }}>🔒 LOCKED</span>
+                  : <span style={{ color: '#4caf50' }}>✅ Active</span>
+                }
+              </div>
+              <div className="info-item"><strong>Unread Alerts:</strong> {securityStatus?.unreadAlerts || 0}</div>
+              <div className="info-item"><strong>IP Whitelist:</strong> {securityStatus?.ipWhitelist?.length > 0 ? securityStatus.ipWhitelist.join(', ') : 'Not configured (all IPs allowed)'}</div>
             </div>
           </div>
 
@@ -158,8 +148,8 @@ export default function Security() {
               <div className="info-item">
                 <strong>Theme:</strong>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <button className={`btn ${settings?.preferredTheme === 'dark' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => handleUpdateSettings({ preferredTheme: 'dark' })}>Dark</button>
-                  <button className={`btn ${settings?.preferredTheme === 'light' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => handleUpdateSettings({ preferredTheme: 'light' })}>Light</button>
+                  <button className={`btn ${theme === 'dark' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => handleUpdateSettings({ preferredTheme: 'dark' })}>🌙 Dark</button>
+                  <button className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => handleUpdateSettings({ preferredTheme: 'light' })}>☀️ Light</button>
                 </div>
               </div>
             </div>

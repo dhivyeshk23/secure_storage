@@ -35,7 +35,6 @@ export default function Register() {
     username: '',
     email: '',
     password: '',
-    role: 'student',
     location: 'external'
   });
   const [error, setError] = useState('');
@@ -71,6 +70,9 @@ export default function Register() {
       <div className="auth-card">
         <h2>Register for Secure Data Vault</h2>
         <p className="auth-subtitle">Create your account</p>
+        <div className="auth-note" style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+          ⚠️ <strong>Note:</strong> Registration requires prior admin authorization. Ensure your email is whitelisted before creating an account.
+        </div>
         {error && <div className="error-msg">{error}</div>}
         {loading && <div className="success-msg">Creating account...</div>}
         <form onSubmit={handleSubmit}>
@@ -132,19 +134,8 @@ export default function Register() {
             )}
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label>Role</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              >
-                <option value="student">Student</option>
-                <option value="professor">Professor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Location</label>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>Location context</label>
               <select
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}

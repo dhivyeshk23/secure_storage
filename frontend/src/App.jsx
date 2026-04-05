@@ -13,6 +13,8 @@ import FolderManager from './pages/FolderManager';
 import LoginHistory from './pages/LoginHistory';
 import Alerts from './pages/Alerts';
 import AdminDashboard from './pages/AdminDashboard';
+import SharedLinks from './pages/SharedLinks';
+import ShareDownload from './pages/ShareDownload';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -57,11 +59,13 @@ function AppRoutes() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/store" element={<ProtectedRoute><StoreData /></ProtectedRoute>} />
           <Route path="/vault" element={<ProtectedRoute><VaultItems /></ProtectedRoute>} />
+          <Route path="/shared-links" element={<ProtectedRoute><SharedLinks /></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
           <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
           <Route path="/folders" element={<ProtectedRoute><FolderManager /></ProtectedRoute>} />
           <Route path="/login-history" element={<ProtectedRoute><LoginHistory /></ProtectedRoute>} />
           <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+          <Route path="/share/:token" element={<ShareDownload />} />
           <Route path="/admin" element={user?.role === 'admin' ? (
             <ProtectedRoute><AdminDashboard /></ProtectedRoute>
           ) : (

@@ -7,11 +7,13 @@ const LoginHistory = require('../models/LoginHistory');
 const Folder = require('../models/Folder');
 const Version = require('../models/Version');
 const Alert = require('../models/Alert');
+const AuthorizedEmail = require('../models/AuthorizedEmail');
 const AuditService = require('../services/AuditService');
 const EncryptionEngine = require('../services/EncryptionEngine');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
+
 
 function getDeviceType(userAgent) {
   if (!userAgent) return 'unknown';
@@ -473,6 +475,64 @@ router.put('/alerts/read-all', authenticate, async (req, res) => {
   try {
     await Alert.updateMany({ user: req.user._id, isRead: false }, { isRead: true, readAt: new Date() });
     res.json({ message: 'All alerts marked as read.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== Admin: Authorized Emails ==========
+
+router.get('/admin/authorized-emails', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const emails = await AuthorizedEmail.find()
+      .populate('addedBy', 'username')
+      .sort({ createdAt: -1 });
+    res.json({ emails });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/admin/authorized-emails', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { email, role } = req.body;
+    if (!email || !role) return res.status(400).json({ error: 'Email and role are required.' });
+
+    const lowerEmail = email.toLowerCase();
+    const existing = await AuthorizedEmail.findOne({ email: lowerEmail });
+    if (existing) {
+      return res.status(400).json({ error: 'This email is already authorized.' });
+    }
+
+    const authEmail = new AuthorizedEmail({
+      email: lowerEmail,
+      role,
+      addedBy: req.user._id
+    });
+    await authEmail.save();
+
+    await AuditService.log({
+      userId: req.user._id, username: req.user.username, role: req.user.role,
+      action: 'AUTHORIZED_EMAIL_ADDED', details: `Authorized email ${lowerEmail} for role ${role}`
+    });
+
+    res.status(201).json({ message: 'Email authorized successfully.', email: authEmail });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/admin/authorized-emails/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const email = await AuthorizedEmail.findByIdAndDelete(req.params.id);
+    if (!email) return res.status(404).json({ error: 'Authorized email not found.' });
+
+    await AuditService.log({
+      userId: req.user._id, username: req.user.username, role: req.user.role,
+      action: 'AUTHORIZED_EMAIL_REMOVED', details: `Removed email ${email.email} from authorization list`
+    });
+
+    res.json({ message: 'Authorized email removed.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

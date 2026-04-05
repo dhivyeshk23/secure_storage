@@ -2,6 +2,26 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { getMe } from '../services/api';
 
 const AuthContext = createContext(null);
+const ThemeContext = createContext(null);
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -46,3 +66,4 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+export const useTheme = () => useContext(ThemeContext);

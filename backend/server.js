@@ -8,12 +8,17 @@ dotenv.config();
 const app = express();
 
 app.use(cors({ 
-  origin: ['https://frontend-omega-nine-52.vercel.app', 'http://localhost:5173', 'http://localhost:5174'],
+  origin: [
+    'https://frontend-omega-nine-52.vercel.app', 
+    'http://localhost:5173', 
+    'http://localhost:5174',
+    'http://10.10.192.10:5173'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // MongoDB connection with retry
 const connectDB = async () => {
@@ -30,26 +35,28 @@ const connectDB = async () => {
     }
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
-    // Retry connection after 5 seconds
     setTimeout(connectDB, 5000);
   }
 };
 
-// Connect on startup
 connectDB();
 
-// Reconnect on disconnect
 mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected, reconnecting...');
   connectDB();
 });
 
+// ─── Routes ─────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/vault', require('./routes/vaultRoutes'));
 app.use('/api/audit', require('./routes/auditRoutes'));
+app.use('/api/advanced', require('./routes/advancedRoutes'));
+app.use('/api/security', require('./routes/securityRoutes'));
+app.use('/api/keys', require('./routes/keyRoutes'));
+app.use('/api', require('./routes/shareRoutes'));
 
+// ─── Health Check ───────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
-  // Try to ensure connection before responding
   try {
     if (mongoose.connection.readyState === 1) {
       await mongoose.connection.db.admin().ping();
@@ -57,12 +64,17 @@ app.get('/api/health', async (req, res) => {
   } catch (e) {
     console.log('Health check - MongoDB not ready');
   }
-  res.json({ status: 'Secure Data Vault API is running', mongoStatus: mongoose.connection.readyState, timestamp: new Date().toISOString() });
+  res.json({
+    status: 'Secure Data Vault API is running',
+    mongoStatus: mongoose.connection.readyState,
+    timestamp: new Date().toISOString(),
+    version: '2.0.0'
+  });
 });
 
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} (accessible on network at http://10.10.192.10:${PORT})`));
 }
 
 module.exports = app;
