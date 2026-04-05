@@ -21,7 +21,8 @@ const auditLogSchema = new mongoose.Schema({
       'STORE_DATA', 'RETRIEVE_DATA', 'RETRIEVE_ALL',
       'DELETE_DATA', 'ACCESS_DENIED',
       'ENCRYPTION_APPLIED', 'DECRYPTION_APPLIED',
-      'POLICY_EVALUATED', 'VIEW_AUDIT_LOGS'
+      'POLICY_EVALUATED', 'VIEW_AUDIT_LOGS',
+      'AUTHORIZED_EMAIL_ADDED', 'AUTHORIZED_EMAIL_REMOVED'
     ],
     required: true
   },

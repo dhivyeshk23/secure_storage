@@ -16,7 +16,7 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, keyRes, emailRes] = await Promise.all([
-          getAdminStats(),
+          getAdminStats().catch(() => ({ data: null })),
           getKeyStatus().catch(() => ({ data: null })),
           getAuthorizedEmails().catch(() => ({ data: { emails: [] } }))
         ]);

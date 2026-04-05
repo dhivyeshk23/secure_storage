@@ -182,6 +182,9 @@ class EncryptionEngine {
    * Wrap (encrypt) a data key using the master key — envelope encryption.
    */
   static wrapKey(dataKeyHex, masterKeyHex) {
+    if (!masterKeyHex) {
+      throw new Error('MASTER_ENCRYPTION_KEY is missing from environment variables.');
+    }
     const masterKey = Buffer.from(masterKeyHex, 'hex').slice(0, 32);
     const iv = crypto.randomBytes(16);
 
@@ -201,6 +204,9 @@ class EncryptionEngine {
    * Unwrap (decrypt) a data key using the master key.
    */
   static unwrapKey(encryptedKeyHex, keyIvHex, keyAuthTagHex, masterKeyHex) {
+    if (!masterKeyHex) {
+      throw new Error('MASTER_ENCRYPTION_KEY is missing from environment variables.');
+    }
     const masterKey = Buffer.from(masterKeyHex, 'hex').slice(0, 32);
     const iv = Buffer.from(keyIvHex, 'hex');
 
