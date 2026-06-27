@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  name            String?
+  passwordHash    String
+  publicKey       String         @db.Text
+  encryptedPrivateKey String     @db.Text
+  salt            String
+  status          AccountStatus  @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  roles           UserRole[]
+  ownedFiles      File[]         @relation("FileOwner")
+  encryptedKeys   EncryptedKey[]
+  sharesReceived  Share[]        @relation("ShareRecipient")
+  auditLogs       AuditLog[]
+  storageQuota    StorageQuota?
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId String
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  @@unique([roleId, permissionId])
+}
+
+model File {
+  id                 String         @id @default(uuid())
+  owner              User           @relation("FileOwner", fields: [ownerId], references: [id])
+  ownerId            String
+  originalFilename   String
+  storedFilename     String         @unique
+  fileSize           BigInt
+  encryptionAlgorithm String        @default("AES-256-GCM")
+  checksum           String
+  storagePath        String
+  createdAt          DateTime       @default(now())
+
+  encryptedKeys      EncryptedKey[]
+  shares             Share[]
+}
+
+model EncryptedKey {
+  id           String   @id @default(uuid())
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  encryptedFEK String   @db.Text
+  createdAt    DateTime @default(now())
+
+  @@unique([fileId, userId])
+}
+
+model Share {
+  id          String         @id @default(uuid())
+  file        File           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId      String
+  recipient   User           @relation("ShareRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipientId String
+  permission  SharePermission
+  expiryTime  DateTime?
+  status      ShareStatus    @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+}
+
+enum SharePermission {
+  VIEW_ONLY
+  DOWNLOAD
+  VIEW_AND_DOWNLOAD
+}
+
+enum ShareStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     String?
+  action     String
+  targetFile String?
+  status     String
+  ipAddress  String?
+  device     String?
+  timestamp  DateTime @default(now())
+}
+
+model StorageQuota {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @unique
+  limitBytes BigInt
+  usedBytes  BigInt   @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+

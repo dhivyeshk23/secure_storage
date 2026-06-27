@@ -1,0 +1,31 @@
+{
+  "hash": "0d77ba50",
+  "configHash": "431ff302",
+  "lockfileHash": "e3b0c442",
+  "browserHash": "b3359e24",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "5f004b8c",
+      "needsInterop": true
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "cd0f0105",
+      "needsInterop": false
+    },
+    "react-toastify": {
+      "src": "../../node_modules/react-toastify/dist/index.mjs",
+      "file": "react-toastify.js",
+      "fileHash": "95b34f6d",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-CN42XBTZ": {
+      "file": "chunk-CN42XBTZ.js"
+    }
+  }
+}
